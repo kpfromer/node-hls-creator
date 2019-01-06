@@ -4,17 +4,25 @@
 import * as path from 'path';
 import { exists, mkdir, exec } from './helper';
 
+export interface Resolution {
+  height: number;
+  width: number;
+}
+
 export interface GenerateHLS {
-  inputFile: string,
-  ffmpegPath?: string,
-  ffprobePath?: string,
-  videoCodec?: string,
-  audioCodec?: string,
-  threads?: number,
-  segmentFolder?: string,
-  segmentLength?: number,
-  playlistPrefix?: string,
-  playlistHLSName?: string
+  inputFile: string;
+  ffmpegPath?: string;
+  ffprobePath?: string;
+  videoCodec?: string;
+  audioCodec?: string;
+  threads?: number;
+  bitrate?: string;
+  constantBitrate?: boolean;
+  resolution?: Resolution;
+  segmentFolder?: string;
+  segmentLength?: number;
+  playlistPrefix?: string;
+  playlistHLSName?: string;
 }
 
 const generateHLS = async ({
@@ -23,6 +31,9 @@ const generateHLS = async ({
   videoCodec = 'copy', // libx264 H264 video encoder
   audioCodec = 'copy', // aac
   threads = 0,
+  bitrate,
+  constantBitrate = false,
+  resolution,
   segmentFolder = 'output',
   segmentLength = 0,
   playlistPrefix = path.basename(inputFile, path.extname(inputFile)),
@@ -35,6 +46,19 @@ const generateHLS = async ({
   if (!(await exists(segmentFolder))) {
     await mkdir(segmentFolder);
   }
+
+  // Resolution
+  const resolutionCommand = !!resolution ? `-vf scale=${resolution.width}:${resolution.height}` : '';
+
+  // Bitrate (LOOK LINE 415/440)
+  let bitrateCommand = '';
+  if (typeof bitrate === 'string') {
+    bitrateCommand = `-b:v ${bitrate}k`;
+    if (constantBitrate) {
+      bitrateCommand += ` -bufsize ${bitrate}k -minrate ${bitrate}k -maxrate ${bitrate}k`;
+    }
+  }
+
   const output = path.join(segmentFolder, `${playlistPrefix}_%05d.ts`);
   const command = `${ffmpegPath} -i ${inputFile} \
     -y \
@@ -48,9 +72,10 @@ const generateHLS = async ({
     -segment_list ${playlistHLSName} \
     -segment_time ${segmentLength} \
     -segment_format mpeg_ts \
+    ${bitrateCommand} \
+    ${resolutionCommand} \
     ${output}
   ` // TODO: other commands
-  console.log(command);
   await exec(command);
 }
 
