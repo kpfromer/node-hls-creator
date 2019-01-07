@@ -28,8 +28,8 @@ export interface GenerateHLS {
 const generateHLS = async ({
   ffmpegPath = 'ffmpeg',
   inputFile,
-  videoCodec = 'copy', // libx264 H264 video encoder
-  audioCodec = 'copy', // aac
+  videoCodec = 'libx264', // libx264 H264 video encoder
+  audioCodec = 'aac', // aac
   threads = 0,
   bitrate,
   constantBitrate = false,
