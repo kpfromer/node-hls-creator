@@ -77,6 +77,39 @@ const generateHLS = async ({
     ${output}
   ` // TODO: other commands
   await exec(command);
+  return `${playlistPrefix}.m3u8`;
 }
 
-generateHLS({ inputFile: '/home/kpfromer/Downloads/SampleVideo_1280x720_10mb.mp4' });
+export interface HLSPlaylist {
+  resolutions?: (Resolution & { bitrate: string })[];
+}
+
+const generatePlaylist = async ({ resolutions, ...singleHLSInfo }: Omit<Omit<GenerateHLS, 'resolution'>, 'bitrate'> & HLSPlaylist) => {
+  if (Array.isArray(resolutions)) {
+    const playlistNames: { name: string, resolution: Resolution & { bitrate: string } }[] = [];
+    for (let resolution of resolutions) {
+      const { width, height, bitrate } = resolution;
+      const { inputFile, playlistPrefix } = singleHLSInfo;
+      let name = !!playlistPrefix ? playlistPrefix : path.basename(inputFile, path.extname(inputFile))
+      name = `${name}-${width}x${height}-${bitrate}br`;
+      const playlistName = await generateHLS({
+        ...singleHLSInfo,
+        bitrate,
+        resolution: { height, width },
+        playlistPrefix: name
+      });
+      playlistNames.push({
+        name: playlistName,
+        resolution
+      });
+    }
+
+    const masterHLSFile = playlistNames.reduce((prev, playlist) => {
+      const hlsString = `#EXT-X-STREAM-INF:BANDWIDTH=${Math.floor(parseFloat(playlist.resolution.bitrate) * 1000)}\n${playlist.name}`
+      return `${prev}\n${hlsString}`
+    }, '#EXTM3U')
+    await writeFile(path.join('output', `master.m3u8`), masterHLSFile)
+  } else {
+    generateHLS(singleHLSInfo);
+  }
+} 
