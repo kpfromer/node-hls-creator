@@ -2,7 +2,7 @@
 // import ffprobeStatic from 'ffprobe-static';
 // import ffprobe from 'ffprobe';
 import * as path from 'path';
-import { exists, mkdir, exec } from './helper';
+import { exists, mkdir, exec, Omit, writeFile } from './helper';
 
 export interface Resolution {
   height: number;
